@@ -1,0 +1,192 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue]{hyperref}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+
+\geometry{margin=1in}
+
+% Better figure captions
+\captionsetup{font=small, labelfont=bf, justification=centering}
+
+% Flowchart style definitions
+\tikzset{
+    startstop/.style={rectangle, rounded corners, minimum width=3cm, minimum height=1cm, text centered, draw=black, text width=3.5cm},
+    process/.style={rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, text width=3.5cm},
+    decision/.style={diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, aspect=2, text width=3cm},
+    io/.style={trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=3cm, minimum height=1cm, text centered, draw=black, text width=3cm},
+    arrow/.style={thick, -Stealth}
+}
+
+% Title and authors
+\title{ELE201 Semester Project Report - Candle Flame Temperature Mapping}
+\author{
+    Tobias Slethei \\
+    Even Børsheim \\
+    Tobias Haavik Hjelle \\
+    Mathias Johannessen-Bech
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\textwidth]{data/figures/experiment_picture.png}
+\caption{Experimental setup showing the STM32F767ZI Nucleo board, MAX31855 thermocouple converter, servo mechanism, and candle flame measurement apparatus.}
+\label{fig:setup}
+\end{figure}
+
+\begingroup
+\let\clearpage\relax
+\tableofcontents
+\endgroup
+
+\newpage
+
+\section{Abstract}
+
+We studied how the temperature inside a candle flame changes while the candle burns down. A K-type thermocouple mounted on a hobby servo swept across the flame so that every probe position could be linked to a temperature sample. The STM32 Nucleo-144 development board (shown in Figure~\ref{fig:setup}) generated the PWM signal for the servo, read the MAX31855 thermocouple converter over SPI, and shared each measurement through a small UART command set. A Python program collected the data, converted pulse widths to spatial coordinates, and produced heatmaps that show how the flame narrows and cools as the wick collapses.
+
+\section{Methodology}
+
+The experiment was designed around a clear division of responsibilities between firmware and host processing. On the microcontroller we configured timer TIM4 to generate a 20 ms PWM period (50 Hz) with a controllable pulse width between 500 microseconds and 2500 microseconds. This covered the mechanical travel of the servo while leaving safety margins on both ends. SPI4 operated as an 8-bit receive-only master with a prescaler of 32 so that the serial clock remained below the 5 MHz limit set by the MAX31855 converter. A dedicated GPIO line drove chip select. During each sampling cycle the firmware collected the thermocouple temperature, the internal cold junction estimate, and the converter fault bits. These values, together with the current pulse command and a millisecond timestamp, were returned on request through a line-based UART command called \texttt{GET}. Companion commands \texttt{SET <pulse>} and \texttt{MOTOR ON/OFF} allowed the host to move the servo while the firmware ensured that all requested pulse widths stayed inside the safe window.
+
+The host program opened the serial connection, enabled the servo, and applied a saw-tooth scan between 1300 microseconds and 1700 microseconds. After each change of pulse width the program paused 100 milliseconds to allow the motor to reach its target position and ensure the thermocouple had time to reach thermal equilibrium. Every recorded row was written to comma-separated storage with its timestamp, measured temperature, servo position, and internal converter temperature. The interaction between the MCU and PC is visualized in Figure~\ref{fig:flowchart}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, scale=0.7, every node/.style={transform shape}]
+
+% Nodes with better text wrapping
+\node (start) [startstop, text width=3.5cm] {PC open serial port};
+\node (init) [process, below of=start, text width=3.5cm] {PC turn motor on;\\set start position;\\wait 1 second};
+\node (pcSet) [process, below of=init, text width=3.5cm] {PC send SET\\with pulse width};
+\node (mcuPWM) [process, below of=pcSet, text width=3.5cm] {MCU clamp pulse\\and update PWM};
+\node (pcWait) [process, below of=mcuPWM, text width=3.5cm] {PC wait dwell time};
+\node (pcGet) [process, below of=pcWait, text width=3.5cm] {PC send GET\\to request data};
+\node (mcuSample) [process, below of=pcGet, text width=3.5cm] {MCU read\\thermocouple and\\prepare response};
+\node (pcCheck) [decision, below of=mcuSample, yshift=-0.8cm, text width=3.2cm] {PC parse\\response\\(valid)?};
+\node (pcLog) [io, below of=pcCheck, xshift=-4.5cm, yshift=-1.2cm, text width=3cm] {PC append\\data to log};
+\node (pcWarn) [process, below of=pcCheck, xshift=4.5cm, yshift=-1.2cm, text width=3cm] {PC report\\fault};
+\node (pcUpdate) [process, below of=pcCheck, yshift=-3.5cm, text width=3.5cm] {PC compute\\next pulse;\\reverse at limits};
+\node (loop) [decision, below of=pcUpdate, yshift=-0.8cm, text width=2.5cm] {Continue\\sweep?};
+\node (end) [startstop, below of=loop, yshift=-0.8cm, text width=3.5cm] {Stop measurement};
+
+% Arrows
+\draw [arrow] (start) -- (init);
+\draw [arrow] (init) -- (pcSet);
+\draw [arrow] (pcSet) -- (mcuPWM);
+\draw [arrow] (mcuPWM) -- (pcWait);
+\draw [arrow] (pcWait) -- (pcGet);
+\draw [arrow] (pcGet) -- (mcuSample);
+\draw [arrow] (mcuSample) -- (pcCheck);
+\draw [arrow] (pcCheck) -- node[anchor=east] {yes} (pcLog);
+\draw [arrow] (pcCheck) -- node[anchor=west] {no} (pcWarn);
+\draw [arrow] (pcLog) -- (pcUpdate);
+\draw [arrow] (pcWarn) -- (pcUpdate);
+\draw [arrow] (pcUpdate) -- (loop);
+\draw [arrow] (loop) -- node[anchor=east] {no} (end);
+\draw [arrow] (loop.west) -- ++(-2.5,0) |- node[near start, above] {yes} (pcSet.west);
+
+\end{tikzpicture}
+\caption{PC-MCU interaction during flame temperature measurement sweep. The loop implements a sawtooth scan pattern with direction reversal at configured pulse width limits.}
+\label{fig:flowchart}
+\end{figure}
+
+\clearpage
+
+The analysis stage then transformed each pulse width into an angle by linearly relating the commanded pulse to the servo travel limits:
+\begin{equation}
+\theta(p) = \theta_{\text{min}} + (\theta_{\text{max}} - \theta_{\text{min}}) \frac{p - p_{\text{min}}}{p_{\text{max}} - p_{\text{min}}}
+\label{eq:theta}
+\end{equation}
+
+Here we used $\theta_{\text{min}} = -90^\circ$, $\theta_{\text{max}} = 90^\circ$, $p_{\text{min}} = 2500$ microseconds, and $p_{\text{max}} = 500$ microseconds based on the mechanical calibration performed before the measurements. We measured that the servo arm $r = 16$ mm. The horizontal displacement of the probe followed
+
+\begin{equation}
+x(\theta) = r \sin(\theta),
+\label{eq:x}
+\end{equation}
+
+while the instantaneous vertical position combined the radial projection and the natural regression of the candle with an offset that anchors the first sample at the initial wick height:
+
+\begin{equation}
+y(\theta, t) = r \cos(\theta) + v \cdot t - r.
+\label{eq:y}
+\end{equation}
+
+with $v = 40\,\text{mm} / (10 \cdot 60\,\text{s})$ estimated from video of the burn. Subtracting the servo radius $r$ ensures that $y=0$ corresponds to the first measurement taken at the starting wick height. Using the kinematic model defined in Equations~\eqref{eq:theta}, \eqref{eq:x}, and \eqref{eq:y}, we converted all pulse width commands to Cartesian coordinates $(x, y)$ for spatial analysis. We assumed that the single wick produced a symmetric flame, so each sample was mirrored as $(x, y, T) \mapsto (-x, y, T)$ to increase spatial coverage before the temperatures were interpolated on a regular grid.
+
+\section{Challenges}
+
+The changing shape of the flame was the most significant challenge. As the wick bent and shortened, the hottest region drifted laterally and vertically, so it was difficult to capture a single, repeatable temperature field. We expected the communication layer to be demanding, yet the simple UART command set made it reliable once the bounds were enforced in firmware. Conversely, we assumed that probe alignment would be straightforward, but minor mechanical offsets caused noticeable asymmetry and required several recalibrations. Another unexpected difficulty was settling time: when the dwell delay was too short, the recorded temperatures lagged behind the actual flame temperature because the thermocouple junction could not equilibrate quickly enough.
+
+\newpage
+
+\section{Conclusion}
+
+We first examine the raw spatial samples shown in Figure~\ref{fig:raw}. The plot follows the servo arc and shows how the measurement plane moves as the candle shortens; early samples cluster near the initial wick height, while later samples shift downward with time.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.3\textwidth]{data/figures/experiment_plot_1.png}
+\caption{Raw temperature measurements showing the curved servo path and vertical drift due to candle consumption over time.}
+\label{fig:raw}
+\end{figure}
+
+To increase spatial coverage, we then mirror the data about the centerline as seen in Figure~\ref{fig:mirror}. This highlights small alignment errors while the hottest measurements remain close to the axis.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.3\textwidth]{data/figures/experiment_plot_2.png}
+\caption{Mirrored dataset showing improved spatial coverage and revealing asymmetry due to mechanical alignment errors.}
+\label{fig:mirror}
+\end{figure}
+
+\newpage
+
+Interpolating the scattered measurements onto a regular grid produces the temperature field shown in Figure~\ref{fig:heatmap}. The peak region is centered near the wick at the start and becomes thinner and slightly tilted as the burn progresses, consistent with visual observations of the flame leaning.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.3\textwidth]{data/figures/experiment_plot_3.png}
+\caption{Interpolated temperature field revealing the hottest core near the wick with characteristic thinning and tilting as the flame evolves.}
+\label{fig:heatmap}
+\end{figure}
+
+Finally, Figure~\ref{fig:centerline} presents the centerline profile that summarises how the hottest core changes over height. Ideally, this would decrease smoothly, but the bending and shortening of the wick introduce deviations from a simple trend.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{data/figures/experiment_plot_4.png}
+\caption{Centerline temperature profile showing the variation of peak temperature with height above the initial wick position.}
+\label{fig:centerline}
+\end{figure}
+
+\newpage
+
+\section{AI Declaration}
+
+Artificial intelligence tools were used as a supplementary resource throughout the project. They assisted primarily with language editing, document structure, and generating preliminary code templates or conceptual outlines during firmware development.
+
+\section{References}
+
+MAX31855 Thermocouple-to-Digital Converter Datasheet: \url{https://www.analog.com/media/en/technical-documentation/data-sheets/max31855.pdf}
+
+\section{Appendix}
+
+Code repository: \url{https://github.com/tobiasslethei/flame_logger}
+
+\end{document}

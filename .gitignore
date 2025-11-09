@@ -1,0 +1,39 @@
+# PlatformIO
+.pio/
+.sconsign.dblite
+
+# STM32CubeIDE generated files
+Debug/
+Release/
+STM32CubeIDE/.settings/
+*.launch
+*.elf
+*.bin
+*.hex
+*.map
+
+# Generic build artifacts
+build/
+*.o
+*.obj
+*.d
+*.out
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+.venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
