@@ -17,6 +17,7 @@ The host program opened the serial connection, enabled the servo, and applied a 
 <img src="./data/figures/experiment_flow_diagram.svg" alt="experiment_flow_diagram" style="zoom:50%;" />
 
 The analysis stage then transformed each pulse width into an angle by linearly relating the commanded pulse to the servo travel limits:
+
 $$
 \theta(p) = \theta_{\text{min}} + (\theta_{\text{max}} - \theta_{\text{min}}) \frac{p - p_{\text{min}}}{p_{\text{max}} - p_{\text{min}}}
 $$
