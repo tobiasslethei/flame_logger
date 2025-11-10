@@ -155,22 +155,29 @@ To increase spatial coverage, we then mirror the data about the centerline as se
 \label{fig:mirror}
 \end{figure}
 
-\newpage
-
-Interpolating the scattered measurements onto a regular grid produces the temperature field shown in Figure~\ref{fig:heatmap}. The peak region is centered near the wick at the start and becomes thinner and slightly tilted as the burn progresses, consistent with visual observations of the flame leaning.
+Interpolating the scattered measurements without mirroring exposes the inherent asymmetry of the flame as it leans and narrows, as shown in Figure~\ref{fig:heatmap_nomirror}.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.3\textwidth]{data/figures/experiment_plot_3.png}
-\caption{Interpolated temperature field revealing the hottest core near the wick with characteristic thinning and tilting as the flame evolves.}
-\label{fig:heatmap}
+\caption{Interpolated temperature field without mirroring, highlighting the bias introduced by the leaning flame.}
+\label{fig:heatmap_nomirror}
+\end{figure}
+
+Applying the same interpolation to the mirrored dataset emphasises the dominant axial structure while smoothing out the mechanical offsets, as visualised in Figure~\ref{fig:heatmap_mirror}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.3\textwidth]{data/figures/experiment_plot_4.png}
+\caption{Interpolated temperature field with mirrored points, producing a symmetric estimate of the flame envelope.}
+\label{fig:heatmap_mirror}
 \end{figure}
 
 Finally, Figure~\ref{fig:centerline} presents the centerline profile that summarises how the hottest core changes over height. Ideally, this would decrease smoothly, but the bending and shortening of the wick introduce deviations from a simple trend.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\textwidth]{data/figures/experiment_plot_4.png}
+\includegraphics[width=0.6\textwidth]{data/figures/experiment_plot_5.png}
 \caption{Centerline temperature profile showing the variation of peak temperature with height above the initial wick position.}
 \label{fig:centerline}
 \end{figure}

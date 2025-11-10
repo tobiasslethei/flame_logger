@@ -6,13 +6,37 @@ We studied how the temperature inside a candle flame changes while the candle bu
 
 ## Methodology
 
+
+
 <img src="data/figures/experiment_picture.png" alt="experiment_picture" style="zoom: 50%;" />
 
 The experiment was designed around a clear division of responsibilities between firmware and host processing. On the microcontroller we configured timer TIM4 to generate a 20 ms PWM period (50 Hz) with a controllable pulse width between 500 microseconds and 2500 microseconds. This covered the mechanical travel of the servo while leaving safety margins on both ends. SPI4 operated as an 8-bit receive-only master with a prescaler of 32 so that the serial clock remained below the 5 MHz limit set by the MAX31855 converter. A dedicated GPIO line drove chip select. During each sampling cycle the firmware collected the thermocouple temperature, the internal cold junction estimate, and the converter fault bits. These values, together with the current pulse command and a millisecond timestamp, were returned on request through a line-based UART command called `GET`. Companion commands `SET <pulse>` and `MOTOR ON/OFF` allowed the host to move the servo while the firmware ensured that all requested pulse widths stayed inside the safe window.
 
-The host program opened the serial connection, enabled the servo, and applied a saw-tooth scan between 1300 microseconds and 1700 microseconds. After each change of pulse width the program paused 100 milliseconds to allow the motor to reach its target position and ensure the thermocouple had time to reach thermal equilibrium. Every recorded row was written to comma-separated storage with its timestamp, measured temperature, servo position, and internal converter temperature. The interaction between the MCU and PC can be visualized by the following flowchart:
+The host program opened the serial connection, enabled the servo, and applied a saw-tooth scan between 1300 microseconds and 1700 microseconds. After each change of pulse width the program paused 100 milliseconds to allow the motor to reach its target position and ensure the thermocouple had time to reach thermal equilibrium. Every recorded row was written to comma-separated storage with its timestamp, measured temperature, servo position, and internal converter temperature. The interaction between the MCU and PC can be visualized by the following flowchart.
 
-<img src="data/figures/experiment_flow_diagram.svg" style="zoom: 50%;" />
+```flow
+start=>start: PC open serial port
+init=>operation: PC turn motor on; set start position; wait 1 second
+pcSet=>operation: PC send SET with pulse width
+mcuPWM=>operation: MCU clamp pulse width and update PWM
+pcWait=>operation: PC wait dwell time
+pcGet=>operation: PC send GET to request data
+mcuSample=>operation: MCU read thermocouple and prepare response
+pcCheck=>condition: PC parse response (valid and no fault)?
+pcLog=>inputoutput: PC append timestamp, position and temperatures to log
+pcWarn=>operation: PC report fault or invalid line
+pcUpdate=>operation: PC compute next pulse; reverse at limits
+loop=>condition: Continue sweep?
+end=>end: Stop measurement
+
+start->init->pcSet->mcuPWM->pcWait->pcGet->mcuSample->pcCheck
+pcCheck(yes)->pcLog->pcUpdate->loop
+pcCheck(no)->pcWarn->pcUpdate->loop
+loop(no)->pcSet
+loop(yes)->end
+```
+
+## 
 
 The analysis stage then transformed each pulse width into an angle by linearly relating the commanded pulse to the servo travel limits:
 $$
@@ -47,13 +71,17 @@ To increase spatial coverage, we then mirror the data about the centerline. This
 
 <img src="data/figures/experiment_plot_2.png" alt="Mirrored sample points about the centerline" style="zoom:33%;" />
 
-Interpolating the scattered measurements onto a regular grid produces the temperature field shown in the figure below. The peak region is centered near the wick at the start and becomes thinner and slightly tilted as the burn progresses, consistent with visual observations of the flame leaning.
+Interpolating the scattered measurements without mirroring exposes the inherent asymmetry of the flame as it leans and narrows.
 
-<img src="data/figures/experiment_plot_3.png" alt="Interpolated temperature heatmap" style="zoom:33%;" />
+<img src="data/figures/experiment_plot_3.png" alt="Interpolated temperature heatmap without mirroring" style="zoom:33%;" />
+
+Applying the same interpolation to the mirrored dataset emphasises the dominant axial structure while smoothing out the mechanical offsets.
+
+<img src="data/figures/experiment_plot_4.png" alt="Interpolated temperature heatmap with mirrored points" style="zoom:33%;" />
 
 Finally, the centerline profile summarises how the hottest core changes over height. Ideally, this would decrease smoothly, but the bending and shortening of the wick introduce deviations from a simple trend.
 
-<img src="data/figures/experiment_plot_4.png" alt="Centerline temperature versus height" style="zoom:33%;" />
+<img src="data/figures/experiment_plot_5.png" alt="Centerline temperature versus height" style="zoom:33%;" />
 
 ## AI Declaration
 
@@ -64,4 +92,11 @@ Artificial intelligence tools were used as a supplementary resource throughout t
 MAX31855 Thermocouple-to-Digital Converter Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/max31855.pdf
 
 ## Appendix
-Code repository: https://github.com/tobiasslethei/flame_logger
+
+Experiment data: `data/flame_scan_00{1,2,3}.csv` plus associated video recordings.
+
+Analysis scripts: Python tools for scan control, logging, and post-processing.
+
+Support utilities: `utils.py` modules for UART communication and data reconstruction.
+
+Video documentation: `data/flame_scan_00{1,2,3}.MOV`, `data/flame_scan_003_timelapse.mov`.

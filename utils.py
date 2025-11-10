@@ -194,6 +194,15 @@ class FlameScan:
         ax.set_aspect("equal")
         ax.set_title(title)
 
+        x_limit = float(np.ceil(max(abs(self.x_mm.min()), abs(self.x_mm.max()))))
+        ax.set_xlim(-x_limit, x_limit)
+        ax.set_xticks([-x_limit, 0.0, x_limit])
+
+        y_min = float(np.floor(self.y_mm.min()))
+        y_max = float(np.ceil(self.y_mm.max()))
+        ax.set_ylim(y_min, y_max)
+        ax.set_yticks(np.linspace(y_min, y_max, 5))
+
         if save_path:
             directory = os.path.dirname(save_path)
             if directory:
@@ -234,6 +243,15 @@ class FlameScan:
         ax.set_xlabel("X (mm)")
         ax.set_ylabel("Y (mm)")
         ax.set_title(title)
+
+        x_limit = float(np.ceil(max(abs(self.x_mm.min()), abs(self.x_mm.max()))))
+        ax.set_xlim(-x_limit, x_limit)
+        ax.set_xticks([-x_limit, 0.0, x_limit])
+
+        y_min = float(np.floor(self.y_mm.min()))
+        y_max = float(np.ceil(self.y_mm.max()))
+        ax.set_ylim(y_min, y_max)
+        ax.set_yticks(np.linspace(y_min, y_max, 5))
 
         if save_path:
             directory = os.path.dirname(save_path)
