@@ -284,6 +284,3 @@ class FlameScan:
             plt.show()
         else:
             plt.close(fig)
-
-    def max_temperature(self):
-        return np.max(self.temp_C)
