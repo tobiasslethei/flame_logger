@@ -174,6 +174,17 @@ class FlameScan:
         self.y_mm = np.array(y_mm)
         self.positions = np.array(positions)
 
+    def _configure_axes(self, ax):
+        """Apply consistent axis limits and ticks across plots."""
+        x_limit = float(np.ceil(max(abs(self.x_mm.min()), abs(self.x_mm.max()))))
+        ax.set_xlim(-x_limit, x_limit)
+        ax.set_xticks([-x_limit, 0.0, x_limit])
+
+        y_min = float(np.floor(self.y_mm.min()))
+        y_max = float(np.ceil(self.y_mm.max()))
+        ax.set_ylim(y_min, y_max)
+        ax.set_yticks(np.linspace(y_min, y_max, 5))
+
     def plot_points(self, mirror=False, cmap="turbo", save_path=None, dpi=300, show=True):
         """Plot raw points, optionally mirrored around y-axis."""
         if mirror:
@@ -194,14 +205,7 @@ class FlameScan:
         ax.set_aspect("equal")
         ax.set_title(title)
 
-        x_limit = float(np.ceil(max(abs(self.x_mm.min()), abs(self.x_mm.max()))))
-        ax.set_xlim(-x_limit, x_limit)
-        ax.set_xticks([-x_limit, 0.0, x_limit])
-
-        y_min = float(np.floor(self.y_mm.min()))
-        y_max = float(np.ceil(self.y_mm.max()))
-        ax.set_ylim(y_min, y_max)
-        ax.set_yticks(np.linspace(y_min, y_max, 5))
+        self._configure_axes(ax)
 
         if save_path:
             directory = os.path.dirname(save_path)
@@ -244,14 +248,7 @@ class FlameScan:
         ax.set_ylabel("Y (mm)")
         ax.set_title(title)
 
-        x_limit = float(np.ceil(max(abs(self.x_mm.min()), abs(self.x_mm.max()))))
-        ax.set_xlim(-x_limit, x_limit)
-        ax.set_xticks([-x_limit, 0.0, x_limit])
-
-        y_min = float(np.floor(self.y_mm.min()))
-        y_max = float(np.ceil(self.y_mm.max()))
-        ax.set_ylim(y_min, y_max)
-        ax.set_yticks(np.linspace(y_min, y_max, 5))
+        self._configure_axes(ax)
 
         if save_path:
             directory = os.path.dirname(save_path)

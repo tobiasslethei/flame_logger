@@ -6,8 +6,6 @@ We studied how the temperature inside a candle flame changes while the candle bu
 
 ## Methodology
 
-
-
 <img src="data/figures/experiment_picture.png" alt="experiment_picture" style="zoom: 50%;" />
 
 The experiment was designed around a clear division of responsibilities between firmware and host processing. On the microcontroller we configured timer TIM4 to generate a 20 ms PWM period (50 Hz) with a controllable pulse width between 500 microseconds and 2500 microseconds. This covered the mechanical travel of the servo while leaving safety margins on both ends. SPI4 operated as an 8-bit receive-only master with a prescaler of 32 so that the serial clock remained below the 5 MHz limit set by the MAX31855 converter. A dedicated GPIO line drove chip select. During each sampling cycle the firmware collected the thermocouple temperature, the internal cold junction estimate, and the converter fault bits. These values, together with the current pulse command and a millisecond timestamp, were returned on request through a line-based UART command called `GET`. Companion commands `SET <pulse>` and `MOTOR ON/OFF` allowed the host to move the servo while the firmware ensured that all requested pulse widths stayed inside the safe window.
