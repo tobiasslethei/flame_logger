@@ -14,29 +14,7 @@ The experiment was designed around a clear division of responsibilities between 
 
 The host program opened the serial connection, enabled the servo, and applied a saw-tooth scan between 1300 microseconds and 1700 microseconds. After each change of pulse width the program paused 100 milliseconds to allow the motor to reach its target position and ensure the thermocouple had time to reach thermal equilibrium. Every recorded row was written to comma-separated storage with its timestamp, measured temperature, servo position, and internal converter temperature. The interaction between the MCU and PC can be visualized by the following flowchart.
 
-```flow
-start=>start: PC open serial port
-init=>operation: PC turn motor on; set start position; wait 1 second
-pcSet=>operation: PC send SET with pulse width
-mcuPWM=>operation: MCU clamp pulse width and update PWM
-pcWait=>operation: PC wait dwell time
-pcGet=>operation: PC send GET to request data
-mcuSample=>operation: MCU read thermocouple and prepare response
-pcCheck=>condition: PC parse response (valid and no fault)?
-pcLog=>inputoutput: PC append timestamp, position and temperatures to log
-pcWarn=>operation: PC report fault or invalid line
-pcUpdate=>operation: PC compute next pulse; reverse at limits
-loop=>condition: Continue sweep?
-end=>end: Stop measurement
-
-start->init->pcSet->mcuPWM->pcWait->pcGet->mcuSample->pcCheck
-pcCheck(yes)->pcLog->pcUpdate->loop
-pcCheck(no)->pcWarn->pcUpdate->loop
-loop(no)->pcSet
-loop(yes)->end
-```
-
-## 
+<img src="./data/figures/experiment_flow_diagram.svg" alt="experiment_flow_diagram" style="zoom:50%;" />
 
 The analysis stage then transformed each pulse width into an angle by linearly relating the commanded pulse to the servo travel limits:
 $$
@@ -93,10 +71,4 @@ MAX31855 Thermocouple-to-Digital Converter Datasheet: https://www.analog.com/med
 
 ## Appendix
 
-Experiment data: `data/flame_scan_00{1,2,3}.csv` plus associated video recordings.
-
-Analysis scripts: Python tools for scan control, logging, and post-processing.
-
-Support utilities: `utils.py` modules for UART communication and data reconstruction.
-
-Video documentation: `data/flame_scan_00{1,2,3}.MOV`, `data/flame_scan_003_timelapse.mov`.
+Code repository: https://github.com/tobiasslethei/flame_logger
